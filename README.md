@@ -8,7 +8,7 @@ Dylan Gatlin
 
 dgatlin@apo.nmsu.edu
 
-##TODO
+## TODO
 
 - Create shared utilities for these separate tools to all use to standardize
  slack functionality and other common behaviors
