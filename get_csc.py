@@ -5,7 +5,7 @@ like. If you'd like to modify the definition of a 'good night', then you
 can modify line 106ish and change the variables in bool_stats. You will also
 need to modify the client OAuth Access Token"""
 
-__version__ = 3.6
+__version__ = '3.7.0'
 __author__ = "Dylan Gatlin"
 
 
@@ -79,6 +79,7 @@ class ClearSky:
         # print(subset)
         self.n_times = []
         self.includes_ecmwf = 'Cloud' in str(subset)
+        self.includes_smoke = 'Smoke' in str(subset)
         loc = 0
         for i, line in enumerate(subset):
             if i == 0:
@@ -184,6 +185,22 @@ class ClearSky:
         # print(seens)
         n_loops += 1
 
+        # Only run with smoke if it finds the first value to contain smoke
+        # if self.includes_smoke:
+
+        # Smoke (which may not always be there)
+        smokes = []
+        # print('Smoke')
+        for line in self.useful_values[sum(self.n_times[:n_loops]):
+                                       sum(self.n_times[:n_loops+1])]:
+            # print(line)
+            val = line.split(':')[-1]
+            if 'No Smoke' in val:
+                smokes.append(0)
+            else:
+                smokes.append(1)
+        n_loops += 1
+
         # Wind
         # Lower limit
         winds = []
@@ -198,7 +215,7 @@ class ClearSky:
             elif 'Smoke' in val:
                 winds.append(0)
             else:
-                print(val.split())
+                # print(val.split())
                 winds.append(int(val.split()[2]))
         winds = np.array(winds)
         n_loops += 1
@@ -265,30 +282,42 @@ class ClearSky:
 
         times = np.array(times)
         days = np.array(days)
-        # print(len(clouds))
+        shortest = np.min([len(days), len(times), len(clouds), len(trans),
+                           len(seens), len(temps), len(winds), len(humids)])
+        # print(shortest)
+        # print(len(days[:shortest]))
+        # print(len(clouds[:shortest]))
         # if self.includes_ecmwf:
-        #     print(len(ecmwf_clouds))
-        # print(len(trans))
-        # print(len(seens))
-        # print(len(winds))
-        # print(len(humids))
-        # print(len(times))
-        # print(len(days))
-        self.weather = astropy.table.Table([days, times, clouds, trans, seens,
-                                            temps, winds, humids, ],
+        #     print(len(ecmwf_clouds[:shortest]))
+        # print(len(trans[:shortest]))
+        # print(len(seens[:shortest]))
+        # print(len(winds[:shortest]))
+        # print(len(humids[:shortest]))
+        # print(len(times[:shortest]))
+        # print(len(days[:shortest]))
+
+        self.weather = astropy.table.Table([days[:shortest], times[:shortest],
+                                            clouds[:shortest], trans[:shortest],
+                                            seens[:shortest], temps[:shortest],
+                                            winds[:shortest], humids[:shortest],
+                                            ],
                                            names=["Day", "Time", "CloudCover",
                                                   "Transparency", "Seeing",
                                                   "Temperature", "Wind",
                                                   "Humidity"])
-        bool_stats = ((clouds <= 30) & (trans >= 3) & (seens >= 3)
-                      & (winds <= 15) & (humids <= 60))
-        qualities = ((10 - clouds / 10)
-                     + 2 * trans
-                     + 2 * seens
-                     + 5 * (winds < 15)
-                     + (5 - humids / 20))
-        bool_temps = (0 <= temps) & (temps <= 35)
-        bool_times = np.logical_or(20 <= times, times <= 6)
+        bool_stats = ((self.weather['CloudCover'] <= 30)
+                      & (self.weather['Transparency'] >= 3)
+                      & (self.weather['Seeing'] >= 3)
+                      & (self.weather['Wind'] <= 15)
+                      & (self.weather['Humidity'] <= 80))
+        qualities = ((10 - self.weather['CloudCover'] / 10)
+                     + 2 * self.weather['Transparency']
+                     + 2 * self.weather['Seeing']
+                     + 5 * (self.weather['Wind'] < 15)
+                     + (5 - self.weather['Humidity'] / 20))
+        bool_temps = (0 <= self.weather['Temperature'])\
+                     & (self.weather['Temperature'] <= 35)
+        bool_times = np.logical_or(20 <= times, times <= 6)[:shortest]
         self.good_times = bool_stats & bool_temps & bool_times
         self.weather.add_column(astropy.table.Column(qualities, name="Rating"))
         self.weather["Rating"].format = ".0f"
