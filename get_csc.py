@@ -195,8 +195,10 @@ class ClearSky:
             # print(val)
             if ">" in val:
                 winds.append(45)
+            elif 'Smoke' in val:
+                winds.append(0)
             else:
-                # print(val.split())
+                print(val.split())
                 winds.append(int(val.split()[2]))
         winds = np.array(winds)
         n_loops += 1

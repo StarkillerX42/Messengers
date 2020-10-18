@@ -17,7 +17,11 @@ class XKCD:
 
     def fetch(self):
         # Get a new comic
-        r = requests.get('https://www.xkcd.com')
+        try:
+            r = requests.get('https://www.xkcd.com')
+        except requests.exceptions.ConnectionError:
+            s.iprint('Cannot connect to xkcd.com, skipping', 1)
+            exit()
         soup = BeautifulSoup(r.text, 'html.parser')
         image = soup.find(id='comic').find_all()[0]
         self.alt_text = str(image).split('title=')[1].strip('">\n</img>')
