@@ -5,7 +5,7 @@ like. If you'd like to modify the definition of a 'good night', then you
 can modify line 106ish and change the variables in bool_stats. You will also
 need to modify the client OAuth Access Token"""
 
-__version__ = '3.7.0'
+__version__ = '3.7.2'
 __author__ = "Dylan Gatlin"
 
 
@@ -330,8 +330,9 @@ class ClearSky:
     def get_sunset(self):
         r = requests.get('https://www.timeanddate.com/sun/@5493452')
         soup = BeautifulSoup(r.text, 'html.parser')
-        sunset = soup.findAll('span', {'class': 'three'})[1]
-        self.sunset_time = str(sunset).split('>')[1].split()[0]
+        tab = soup.find('table', {'class': 'table'})
+        self.sunset_time = tab.findAll('tr')[-1].findAll(
+            'td')[0].text.split()[0]
         s.iprint(f'Sunset is at {self.sunset_time}', 1)
 
     def compose(self):
