@@ -9,6 +9,7 @@ __version__ = '3.7.2'
 __author__ = "Dylan Gatlin"
 
 
+from numpy import testing
 import requests
 import numpy as np
 import datetime as dt
@@ -24,7 +25,7 @@ print("ClearSkies started at {}".format(start))
 
 # Creates a log file
 home = Path(__file__).parent.absolute()
-log_path = home / 'clear_sky.log' 
+log_path = home / 'clear_sky.log'
 # print("Log file stored at:", log_path)
 log = open(log_path, "a")
 log.write("download_csc.py started at {}\n".format(dt.datetime.now()))
@@ -46,12 +47,14 @@ class ClearSky:
     Methods:
         __init__: Takes location and channel name, then downlaods the forecast
         send: Sends the message"""
-    def __init__(self, location, channel):
+
+    def __init__(self, location, channel, test):
         self.location_name = location
         self.location = location_names[location]
         self.channel = channel_names[channel]
         self.sunset_time = ''
         self.post_line = ''
+        self.test = test
         # print(home / 'bean_clear_skies.key')
         try:
             self.oauth_token = (home / 'beancc_clearskies.key').open(
@@ -62,13 +65,25 @@ class ClearSky:
             raise s.GatlinError('No oauth token found')
         # Download from website using requests)
         # print(self.location)
-        r = requests.get(self.location)
+        np.random.choice
+        header = {"user-agent": np.random.choice([
+            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:89.0) Gecko/20100101"
+            " Firefox/89.0",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36"
+            " (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36",
+            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64) AppleWebKit/605.1.15"
+            " (KHTML, like Gecko) Version/14.0 Safari/605.1.15 Midori/6"
+        ]),
+            "referer": "http://google.com"
+        }
+        r = requests.get(self.location, headers=header)
         # print(r)
         # print(r.content)
         # print(r.text)
         # The content of the image
         soup = BeautifulSoup(r.text, 'html.parser')
-        # print(soup)
+        if "Mod_Security" in str(soup):
+            raise s.GatlinError("Request declined by CSC")
         subset = soup.find('map')
         # print(subset)
         log.write("Clear Skies successfully reached.\n")
@@ -146,8 +161,9 @@ class ClearSky:
         for line in self.useful_values[sum(self.n_times[:n_loops]):
                                        sum(self.n_times[:n_loops+1])]:
             # print(line)
-            val = line.split(":")[2].split('"')[0][1:]
-            # print(val)
+            # s.iprint(line.split(":"), 1)
+            val = line.split(":")[2].split('"')[0].split(" (")[0][1:]
+            # s.iprint(val, 1)
             if val == "Transparent":
                 trans.append(5)
             elif val == "Above average":
@@ -159,7 +175,8 @@ class ClearSky:
             elif val == 'Too cloudy to forecast' or val == 'Poor':
                 trans.append(1)
             else:
-                print(line)
+                # s.iprint("printing else", 1)
+                s.iprint(f"Unable to parse: {line}", 1)
         trans = np.array(trans)
         n_loops += 1
 
@@ -284,7 +301,15 @@ class ClearSky:
         days = np.array(days)
         shortest = np.min([len(days), len(times), len(clouds), len(trans),
                            len(seens), len(temps), len(winds), len(humids)])
-        # print(shortest)
+        if shortest == 0:
+            raise s.GatlinError(
+                f"One of the arrays is of length 0:"
+                f" Days: {len(days)}, Times: {len(times)},"
+                f" Clouds: {len(clouds)},"
+                f" Transparency: {len(trans)}, Seeing: {len(seens)},"
+                f" Temperature: {len(temps)}, Wind: {len(winds)},"
+                f" Humidity: {len(humids)}")
+
         # print(len(days[:shortest]))
         # print(len(clouds[:shortest]))
         # if self.includes_ecmwf:
@@ -316,7 +341,7 @@ class ClearSky:
                      + 5 * (self.weather['Wind'] < 15)
                      + (5 - self.weather['Humidity'] / 20))
         bool_temps = (0 <= self.weather['Temperature'])\
-                     & (self.weather['Temperature'] <= 35)
+            & (self.weather['Temperature'] <= 35)
         bool_times = np.logical_or(20 <= times, times <= 6)[:shortest]
         self.good_times = bool_stats & bool_temps & bool_times
         self.weather.add_column(astropy.table.Column(qualities, name="Rating"))
@@ -337,7 +362,7 @@ class ClearSky:
 
     def compose(self):
         if sum(self.good_times) > 0:
-            self.post_line += ("These are the times with good conditions at" 
+            self.post_line += ("These are the times with good conditions at"
                                " {}:\n```        Date: Time: Score:\n".format(
                                    self.location_name))
             for da, ti, qu in zip(self.weather['Day'][self.good_times],
@@ -364,25 +389,30 @@ class ClearSky:
         s.iprint("Sending to {}".format(self.channel), 1)
         # print(self.oauth_token)
         sc = slack.WebClient(token=self.oauth_token)
-        response = sc.chat_postMessage(channel=self.channel,
-                                       text=self.post_line)
-        if response["ok"]:
-            log.write("Successfully sent to {}\n\n".format(self.channel))
-            s.iprint("Successfully sent to {}".format(self.channel), 1)
-        else:
-            log.write(response["error"] + "\n\n")
-            s.iprint(response["error"], 1)
+        if not self.test:
+            response = sc.chat_postMessage(channel=self.channel,
+                                           text=self.post_line)
+            if response["ok"]:
+                log.write("Successfully sent to {}\n\n".format(self.channel))
+                s.iprint("Successfully sent to {}".format(self.channel), 1)
+            else:
+                log.write(response["error"] + "\n\n")
+                s.iprint(response["error"], 1)
 
 
 def main():
     if len(sys.argv) == 3:
         # print(sys.argv)
         path, site, chnnl = sys.argv
+
     else:
         site = "APO"
         chnnl = 'Beans'
-    # try:
-    weather = ClearSky(site, chnnl)
+    if "--test" in sys.argv:
+        test = True
+    else:
+        test = False
+    weather = ClearSky(site, chnnl, test)
     try:
         weather.get_sunset()
     except Exception as e:
