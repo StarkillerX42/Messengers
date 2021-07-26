@@ -1,5 +1,5 @@
 *.key
-.idea
+/.idea/
 *.txt
 *.log
 /.vscode/

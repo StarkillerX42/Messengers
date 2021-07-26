@@ -9,7 +9,6 @@ __version__ = '3.7.2'
 __author__ = "Dylan Gatlin"
 
 
-from numpy import testing
 import requests
 import numpy as np
 import datetime as dt
@@ -333,15 +332,15 @@ class ClearSky:
         bool_stats = ((self.weather['CloudCover'] <= 30)
                       & (self.weather['Transparency'] >= 3)
                       & (self.weather['Seeing'] >= 3)
-                      & (self.weather['Wind'] <= 15)
+                      & (self.weather['Wind'] <= 25)
                       & (self.weather['Humidity'] <= 80))
         qualities = ((10 - self.weather['CloudCover'] / 10)
                      + 2 * self.weather['Transparency']
                      + 2 * self.weather['Seeing']
-                     + 5 * (self.weather['Wind'] < 15)
+                     + 5 * (self.weather['Wind'] < 25)
                      + (5 - self.weather['Humidity'] / 20))
-        bool_temps = (0 <= self.weather['Temperature'])\
-            & (self.weather['Temperature'] <= 35)
+        bool_temps = (-10 <= self.weather['Temperature'])\
+            & (self.weather['Temperature'] <= 25)
         bool_times = np.logical_or(20 <= times, times <= 6)[:shortest]
         self.good_times = bool_stats & bool_temps & bool_times
         self.weather.add_column(astropy.table.Column(qualities, name="Rating"))
