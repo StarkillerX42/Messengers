@@ -16,7 +16,8 @@ driver.get("https://login.xfinity.com/login")
 
 email_form = driver.find_element(By.ID, "user")
 email_form.click()
-for key in "dyga9911@colorado.edu":
+eml = getpass.getpass("Email: ")
+for key in eml:
     email_form.send_keys(key)
     WebDriverWait(driver, np.random.random() * 0.1 + 0.05)
 lets_go = driver.find_element(By.ID, "sign_in")
